@@ -105,7 +105,6 @@ nyc_airbnb |>
 
 fit a "null" and "alternative" model 
 
-
 ```{r}
 fit_null = lm (price ~ stars + borough, data = nyc_airbnb)
 fit_alternative = lm (price ~ stars + borough + room_type, data = nyc_airbnb)
@@ -115,6 +114,66 @@ anova(fit_null, fit_alternative) |>
 ```
 
 ## Borough-level differences
+* itneractions
+star ratings and room type affects price differently in each borough. 
+```{r}
+fit = 
+  nyc_airbnb |>
+  lm(price ~ stars * borough + room_type * borough, data = _)
+
+fit |>
+  broom::tidy()
+```
+
+nesting columns? 
+nest within boroughs and fit borough-specific models associating price with rating and room type
+
+separate model to fit different borough
+nest dataset
+fit each dataset
+```{r}
+airbnb_lm = function(df) {
+  lm(price ~ stars + room_type, data = df)
+}
+
+
+nyc_airbnb |>
+  nest(df = -borough) |>
+  mutate(
+    models = map(df, airbnb_lm), 
+    results = map(models, broom::tidy)
+  ) |>
+  select(borough, results) |>
+  unnest(results) |>
+  select(borough, term, estimate) |>
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate
+  ) |>
+  knitr::kable(digits = 2)
+```
+
+same thing but just a little difference
+
+```{r}
+nyc_airbnb |>
+  nest(df = -borough) |>
+  mutate(
+    models = map(df, \(df) lm(price~stars + room_type, data = df)), 
+    results = map(models, broom::tidy)
+  ) |>
+  select(borough, results) |>
+  unnest(results) |>
+  select(borough, term, estimate) |>
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate
+  ) |>
+  knitr::kable(digits = 2)
+```
+
+## Binary outcomes
+
 
 
 

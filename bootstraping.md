@@ -94,3 +94,76 @@ sim_df_nonconst|>
 ``` r
 # data is not supposed to look at that, still want to extract informaiton from it?
 ```
+
+## Draw and analyze a bootstrap sample
+
+start with a little function
+
+``` r
+boot_sample = function(df) {
+  sample_frac(df, replace = TRUE)
+}
+```
+
+Lets see how this works
+
+``` r
+sim_df_nonconst |> 
+  boot_sample() |>
+  ggplot(aes(x = x, y = y)) + 
+  geom_point(alpha = .5) +
+  stat_smooth(method = "lm")
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+<img src="bootstraping_files/figure-gfm/unnamed-chunk-5-1.png" width="90%" />
+
+``` r
+# different degree of shading for points, picking the same thing several times, get darker points. 
+```
+
+## Draw a lot of samples and analyze them
+
+``` r
+boot_straps = 
+  tibble(strap_number = 1:100) |> 
+  mutate(
+    strap_sample = map(strap_number, \(i) boot_sample(df = sim_df_nonconst))
+  )
+
+boot_straps |>
+  pull(strap_sample) |>
+  nth(2) |>
+  arrange(x)
+```
+
+    ## # A tibble: 250 × 3
+    ##         x  error       y
+    ##     <dbl>  <dbl>   <dbl>
+    ##  1 -1.29   1.40  -0.454 
+    ##  2 -0.989 -1.97  -2.93  
+    ##  3 -0.914 -0.908 -1.65  
+    ##  4 -0.914 -0.908 -1.65  
+    ##  5 -0.805  0.292 -0.123 
+    ##  6 -0.805  0.292 -0.123 
+    ##  7 -0.665 -0.544 -0.539 
+    ##  8 -0.641 -0.416 -0.338 
+    ##  9 -0.606 -0.106  0.0774
+    ## 10 -0.606 -0.106  0.0774
+    ## # ℹ 240 more rows
+
+now do the lm fit
+
+``` r
+boot_results =
+  boot_straps|>
+  mutate(models = map(strap_sample, \(df) lm(y~x, data = df)), 
+         results = map(models, broom::tidy)
+  ) |>
+  select(strap_number, results) |>
+  unnest(results)
+
+
+# fit a correspond linear model to all of these
+```

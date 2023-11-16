@@ -63,8 +63,55 @@ sim_df_nonconst|>
 # data is not supposed to look at that, still want to extract informaiton from it?
 ```
 
+## Draw and analyze a bootstrap sample
+
+start with a little function 
+```{r}
+boot_sample = function(df) {
+  sample_frac(df, replace = TRUE)
+}
+```
+
+Lets see how this works
+
+```{r}
+sim_df_nonconst |> 
+  boot_sample() |>
+  ggplot(aes(x = x, y = y)) + 
+  geom_point(alpha = .5) +
+  stat_smooth(method = "lm")
+
+# different degree of shading for points, picking the same thing several times, get darker points. 
+```
+
+## Draw a lot of samples and analyze them 
+
+```{r}
+boot_straps = 
+  tibble(strap_number = 1:100) |> 
+  mutate(
+    strap_sample = map(strap_number, \(i) boot_sample(df = sim_df_nonconst))
+  )
+
+boot_straps |>
+  pull(strap_sample) |>
+  nth(2) |>
+  arrange(x)
+```
+
+now do the lm fit
+```{r}
+boot_results =
+  boot_straps|>
+  mutate(models = map(strap_sample, \(df) lm(y~x, data = df)), 
+         results = map(models, broom::tidy)
+  ) |>
+  select(strap_number, results) |>
+  unnest(results)
 
 
+# fit a correspond linear model to all of these
+```
 
 
 

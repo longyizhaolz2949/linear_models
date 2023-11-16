@@ -167,3 +167,96 @@ boot_results =
 
 # fit a correspond linear model to all of these
 ```
+
+try to summarize these results – get a bootstrap standard error
+
+``` r
+boot_results |>
+  group_by(term) |>
+  summarize(
+    se = sd(estimate)
+  )
+```
+
+    ## # A tibble: 2 × 2
+    ##   term            se
+    ##   <chr>        <dbl>
+    ## 1 (Intercept) 0.0752
+    ## 2 x           0.102
+
+``` r
+boot_results |>
+  filter(term =="x") |>
+  ggplot(aes(x = estimate)) +
+  geom_density()
+```
+
+<img src="bootstraping_files/figure-gfm/unnamed-chunk-9-1.png" width="90%" />
+
+look at the distribution
+
+``` r
+boot_results |>
+  group_by(term) |>
+  summarize(
+    ci_lower = quantile(estimate, 0.025), 
+    ci_upper = quantile(estimate, 0.975)
+  )
+```
+
+    ## # A tibble: 2 × 3
+    ##   term        ci_lower ci_upper
+    ##   <chr>          <dbl>    <dbl>
+    ## 1 (Intercept)     1.76     2.06
+    ## 2 x               2.97     3.38
+
+## Airbnb
+
+``` r
+data("nyc_airbnb")
+
+nyc_airbnb = 
+  nyc_airbnb |> 
+  mutate(stars = review_scores_location / 2) |> 
+  rename(
+    borough = neighbourhood_group,
+    neighborhood = neighbourhood) |> 
+  filter(borough != "Staten Island") |> 
+  drop_na(price, stars) |> 
+  select(price, stars, borough, neighborhood, room_type)
+```
+
+Let’s fit a regression of price on other variables and look at residuals
+
+``` r
+airbnb_fit =
+  nyc_airbnb |>
+  lm(price ~ stars +room_type + borough, data = _)
+```
+
+``` r
+nyc_airbnb |>
+  modelr::add_residuals(airbnb_fit) |>
+  ggplot(aes(x = stars, y = resid, color = room_type)) +
+  geom_point()
+```
+
+<img src="bootstraping_files/figure-gfm/unnamed-chunk-13-1.png" width="90%" />
+
+run a bootstrap on this whole thing to get estimates for the effect o
+fstars on price
+
+``` r
+nyc_airbnb |> 
+  filter(borough == "Manhattan") |> 
+  modelr::bootstrap(n = 1000) |> 
+  mutate(
+    models = map(strap, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(models, broom::tidy)) |> 
+  select(results) |> 
+  unnest(results) |> 
+  filter(term == "stars") |> 
+  ggplot(aes(x = estimate)) + geom_density()
+```
+
+<img src="bootstraping_files/figure-gfm/unnamed-chunk-14-1.png" width="90%" />
